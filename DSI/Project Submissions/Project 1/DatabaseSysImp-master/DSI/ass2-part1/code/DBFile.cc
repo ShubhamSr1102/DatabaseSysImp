@@ -12,177 +12,145 @@
 #include "fstream"
 
 
-// Constructor.
 DBFile::DBFile () {
-    this -> fileBuffer = new File();
-    this -> writeBuffer = new Page(); 
-    this -> readBuffer = new Page();
-    this -> isEmptyWriteBuffer = true;
-    this -> endoffile = false;
-    this -> pageIdx = 0;
+    this -> fBuffer = new File();
+    this -> wBuffer = new Page(); 
+    this -> rBuffer = new Page();
+    this -> isEmptyWBuffer = true;
+    this -> endOfFile = false;
+    this -> pageIndex = 0;
 }
 
 
-// Create normal file. 
 int DBFile::Create (const char *f_path, fType f_type, void *startup) {
-    char metadata[100];
-    strcpy(metadata , f_path);
-    strcat(metadata , "-metadata.header");
+    char meta_data[100];
+    strcpy(meta_data , f_path);
+    strcat(meta_data , "-metadata.header");
 
-    // Initially keeping the flag as true for write buffer.
-    this -> isEmptyWriteBuffer = true;
-    ofstream fileOutputStream;
-    fileOutputStream.open(metadata);
+    this -> isEmptyWBuffer = true;
+    ofstream outputFileStream;
+    outputFileStream.open(meta_data);
 
-    // f_type is added to metadata file.
     if (f_type == heap) {
-        fileOutputStream << "Heap file created.\n";
+        outputFileStream << "Heap file created.\n";
     }
-    // Open operation on the file is called.
-    fileBuffer -> Open(0, (char *)f_path);  
-    fileOutputStream.close();
+    fBuffer -> Open(0, (char *)f_path);  
+    outputFileStream.close();
 
     return 1;
 }
 
 
-// Load the DBFile instance .tbl files.
 void DBFile::Load (Schema &f_schema, const char *loadpath) {
-    FILE  *fileInputStream = fopen(loadpath , "r");
-    Record currRecord;
-    // Records are read using SuckNextRecord function from Record.h.
-    while(currRecord.SuckNextRecord( &f_schema , fileInputStream ) == 1){
-        // Add function is called to add the record to DBFile instance
-        this -> Add(currRecord);
+    FILE  *inputFileStream = fopen(loadpath , "r");
+    Record currentRecord;
+    while(currentRecord.SuckNextRecord( &f_schema , inputFileStream ) == 1){
+        this -> Add(currentRecord);
     }
-    fclose(fileInputStream);
+    fclose(inputFileStream);
 }
 
 
-// Assumes Heap file exists and DBFile instance points to the heap file.
 int DBFile::Open (const char *f_path) {
-    //Open function from File class on the existing bin file created
-    this -> fileBuffer -> Open(1, (char *)f_path);
-    //initially keep the end of file as false and page Index to zero
-    this -> endoffile = false;
-    this -> pageIdx = 0;
+    this -> fBuffer -> Open(1, (char *)f_path);
+    this -> endOfFile = false;
+    this -> pageIndex = 0;
 
     return 1;
 }
 
 
-// Function points to the first record in the file.
 void DBFile::MoveFirst () {
-    // On existing file, we are extracting the first page into read buffer.
-    this -> fileBuffer -> GetPage(this -> readBuffer, 0);
+    this -> fBuffer -> GetPage(this -> rBuffer, 0);
 }
 
 
-// Closes the file.
 int DBFile::Close () {
-    // Checking if the write buffer is empty to write the last page to file.
-    if(this -> isEmptyWriteBuffer == false) {
-        off_t no_of_pages = fileBuffer -> GetLength();
-        if(no_of_pages != 0) {
-            no_of_pages = no_of_pages - 1;
+    if(this -> isEmptyWBuffer == false) {
+        off_t numberOfPages = fBuffer -> GetLength();
+        if(numberOfPages != 0) {
+            numberOfPages = numberOfPages - 1;
         }
-        this -> fileBuffer -> AddPage(writeBuffer, no_of_pages);
-        writeBuffer -> EmptyItOut();
+        this -> fBuffer -> AddPage(wBuffer, numberOfPages);
+        wBuffer -> EmptyItOut();
     }
-    this -> fileBuffer -> Close();
+    this -> fBuffer -> Close();
     
-    // Delete all the object instances.
-    delete fileBuffer;
-    delete writeBuffer;
-    delete readBuffer;
-    isEmptyWriteBuffer = true;
+    delete fBuffer;
+    delete wBuffer;
+    delete rBuffer;
+    isEmptyWBuffer = true;
 
     return 1;
 }
 
-// Add new record to end of file.
 void DBFile::Add (Record &rec) {
     Record write;
     write.Consume(&rec);
-    off_t no_of_pages = (*fileBuffer).GetLength();
+    off_t numberOfPages = (*fBuffer).GetLength();
 
-    this -> isEmptyWriteBuffer = false;
+    this -> isEmptyWBuffer = false;
 
-    // Append operation failed.
-    if(writeBuffer -> Append(&write) == 0) {
-        if(no_of_pages == 0) {
-            // First page adding to file.
-            fileBuffer -> AddPage(writeBuffer, 0);
+    if(wBuffer -> Append(&write) == 0) {
+        if(numberOfPages == 0) {
+            fBuffer -> AddPage(wBuffer, 0);
         }
         else {
-            // Adding page to file.
-            fileBuffer -> AddPage(writeBuffer , no_of_pages - 1); 
+            fBuffer -> AddPage(wBuffer , numberOfPages - 1); 
         }
 
-        // Empty the write buffer.
-        writeBuffer -> EmptyItOut();
-        // Append the record to the write buffer.
-        writeBuffer -> Append(&write);
+        wBuffer -> EmptyItOut();
+        wBuffer -> Append(&write);
     }
 }
 
 
-// Gets the next record present in heap file and returns.
 int DBFile::GetNext (Record &fetchme) {
-    // Checking end of file. 
-    if(this -> endoffile == false) {
-        // Extracting the next record from readbuffer.
-        int result = this -> readBuffer -> GetFirst(&fetchme);
-        // Checking if the readbuffer has any records.
+    if(this -> endOfFile == false) {
+        int result = this -> rBuffer -> GetFirst(&fetchme);
         if(result == 0) {
-            // Incrementing the page index.
-            pageIdx++;
-            // Checking if the end of file has reached.
-            if(pageIdx >= this -> fileBuffer -> GetLength() - 1) {
-                // Updating end of file as true.
-                this -> endoffile = true;
+            pageIndex++;
+            if(pageIndex >= this -> fBuffer -> GetLength() - 1) {
+                this -> endOfFile = true;
 
-                return 0; // End of file has been reached.
+                return 0; 
             } else {
-                // Extracting next page from file into read buffer.
-                this -> fileBuffer -> GetPage(this -> readBuffer,pageIdx);
-                this -> readBuffer -> GetFirst(&fetchme);
+                this -> fBuffer -> GetPage(this -> rBuffer,pageIndex);
+                this -> rBuffer -> GetFirst(&fetchme);
             }
         }
 
-        return 1; // Next record is fed into fetchme.
+        return 1; 
     }
 
-    return 0; // End of file has been reached.
+    return 0; 
 }
 
 
-// Gets the next record from the Heap file if the accepted by the predicate.
 int DBFile::GetNext (Record &fetchme, CNF &cnf, Record &literal) {
-    ComparisonEngine cmpengine;
+    ComparisonEngine compEngine;
 
     while(GetNext(fetchme)) {
-        if(cmpengine.Compare(&fetchme,&literal,&cnf))
-            return 1;   // Record accepted by the predicate.
+        if(compEngine.Compare(&fetchme,&literal,&cnf))
+            return 1;   
     }
 
-    return 0; // End of file reached and no more accepted by predicate.
+    return 0; 
 }
 
 
-// Return the size of the current DBFile.
 int DBFile::getSize() {
-    off_t noof_pages = this -> fileBuffer -> GetLength();
+    off_t numberOfPages = this -> fBuffer -> GetLength();
 
-    if(this -> isEmptyWriteBuffer == false) {
-        if(noof_pages == 0) {
-            this -> fileBuffer -> AddPage(this -> writeBuffer, noof_pages - 2);
+    if(this -> isEmptyWBuffer == false) {
+        if(numberOfPages == 0) {
+            this -> fBuffer -> AddPage(this -> wBuffer, numberOfPages - 2);
         } else {
-            this -> fileBuffer -> AddPage(this -> writeBuffer, noof_pages - 1);
+            this -> fBuffer -> AddPage(this -> wBuffer, numberOfPages - 1);
         }
-        this -> isEmptyWriteBuffer = true;
-        this -> writeBuffer -> EmptyItOut();
+        this -> isEmptyWBuffer = true;
+        this -> wBuffer -> EmptyItOut();
     }
 
-    return this -> fileBuffer -> GetLength() - 1;
+    return this -> fBuffer -> GetLength() - 1;
 }

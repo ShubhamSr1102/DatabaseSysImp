@@ -10,33 +10,26 @@
 
 using namespace std;
 
-
-// Class for BigQ.
 class BigQ {
 
 	private:
-		Pipe *inputPipe;	// Input pipe to get records. 
-		Pipe *outputPipe;	// Output pipe to push records.
-		OrderMaker *sortedOrder;	// Sorted order required for sorting.
-		int *runLength;	// Run length. 
-		File *runsFile;	// File pointer for the runs file. 
-		vector<int> runPointers;	// List of pointers to all the runs.
+		Pipe *inPipe;	
+		Pipe *outPipe;	
+		OrderMaker *sortOrder;	
+		int *runLen;	
+		File *file;	
+		vector<int> runPointersList;	
 
 	public:
-		// Contructor to intialize the fields of BigQ.
 		BigQ(Pipe &in, Pipe &out, OrderMaker &sortorder, int runlen);
 
-		// Worker function which does the TPMMS sorting.
-		void worker();
+		void workerMethod();
 		
-		// Start of the TPMMS Algorithm from the new thread.
-		static void* invoke_tpmmsAlgo( void *args );
+		static void* invokeTPMMSAlgo(void *args);
 		
-		// Sort the current run.
-		void sortRun( vector <Record*> &);
+		void sortRunMethod(vector <Record*> &);
 		
-		// Write the current sorted run to the file.
-		int addRuntoFile(vector <Record*> & );
+		int addRunToFileMethod(vector <Record*> & );
 
 		~BigQ ();
 };
