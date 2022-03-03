@@ -219,7 +219,7 @@ int BigQ::addRunToFileMethod(vector<Record *> &vector) {
 	return this -> file -> GetLength() - 1; 
 }
 
-
+void BigQ::sortRun(vector<Record *> &vector) {
 	sort(vector.begin(), vector.end(), RecordComparator(sortOrder));
 }
 
